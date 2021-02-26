@@ -10,7 +10,7 @@ var mapboxToken = "pk.eyJ1IjoibWFyaWphdHJpZmtvdmljIiwiYSI6ImNqd3djNjQyejAybmw0NG
 var request;
 // data from json
 var data;
-// arrray that stores all the points gathered from request
+// array that stores all the points gathered from request
 var points = [];
 
 // switches between two modes: search for points by moving the mouse, or see all points on the map
@@ -113,9 +113,8 @@ class Point {
 
     pos = map.latLngToPixel( this.lat, this.lng );
 
-    // change so its easier to close
-
-    if ( dist ( pos.x, pos.y, mouseX, mouseY ) < 10 ) {
+    // larger radius for closing so it's easier to close the circle
+    if ( ( dist ( pos.x, pos.y, mouseX, mouseY ) < 10 && !this.isClicked ) || ( this.isClicked && dist ( pos.x, pos.y, mouseX, mouseY ) < 20 )) {
 
       // flip icClicked if closing or if point in seelcted category
       // is point clicked and category changed the point will still be displayed
@@ -132,14 +131,18 @@ class Point {
     circle( newX, newY, map.zoom() * 40 );
     textAlign ( CENTER );
     textStyle ( BOLD );
+    // black letters on light background, white letters on dark backgrounds
     if ( this.airQualityVal == 5 || this.airQualityVal == 6 ) {
       fill ( 255 );
     }
     else {
       fill ( 0 );
     }
+    // so that the name fits in one line in the circle
+    // really small if name is long
     textSize ( ( map.zoom() * 54 ) / this.name.length );
     text ( this.name, newX - map.zoom() * 27, newY - map.zoom() * 10, map.zoom() * 54, map.zoom() * 20 );
+    // print aqi
     textSize ( map.zoom() * 10 );
     text ( this.aqi, newX, newY + map.zoom() * 10 );
 
@@ -186,13 +189,13 @@ function preload () {
   // get info from city
   //request = baseUrl + "/feed/london/?token=" + token;
 
-  // all stations in the rectangle defined by given lat and lon
-  request = baseUrl + "/map/bounds/?latlng=-90,-180,90,180&token=" + token;
-  
   // nearest station
   //request = baseUrl + "/feed/geo:70;70/?token=" + token;
+
+  // all stations in the rectangle defined by given lat and lon
+  request = baseUrl + "/map/bounds/?latlng=-90,-180,90,180&token=" + token;
+
   loadJSON ( request, printJ );
-  //loadJSON( someRequest + token2, printJ );
 }
 
 function printJ ( data ) {
@@ -251,13 +254,14 @@ function setup() {
   cityInput.input ( getCity );
 }
 
-
+// called when input is changed
 function getCity () {
 
   request = baseUrl + "/feed/" + cityInput.value() + "/?token=" + token;
   loadJSON ( request, getCityInfo );
 }
 
+// get data about the city in the input
 function getCityInfo ( data ) {
 
   if ( data.status == "ok" ) {
@@ -272,6 +276,7 @@ function getCityInfo ( data ) {
   else newCity = 0;
 }
 
+// flip seeAll, show all points on the map
 function seeAllFunc () {
 
   seeAll = !seeAll;
@@ -288,6 +293,7 @@ function seeAllFunc () {
 
 function mapMoved () { clear(); }
 
+// draw all points on the map
 function draw() {
 
   clear();
@@ -297,6 +303,7 @@ function draw() {
   if ( newCity ) newCity.putOnMap();
 }
 
+// change status of point if it is clicked
 function mousePressed () {
 
   for ( var i = 0; i < points.length; ++i ) {
