@@ -1,6 +1,12 @@
 
+// if mouse over map and no points show up, refresh page
+// sometimes aqi data doesn't get loaded properly
+
 // base url for getting data
 var baseUrl = "https://api.waqi.info";
+
+// left tokens here
+
 // token for aqi data
 var token = "ceb3e4043ac7f55d252a0114f6a74d7bfdbd80e0";
 // token for mapbox map
@@ -24,6 +30,9 @@ var selectAirQuality;
 var pickAirQualityLabel;
 
 // to seach for specific city information
+// once city is deleted from input, info in circle disapears 
+// input has to be deleted char by char
+// command + A delete doesn't work for removing the circle
 var cityInput;
 var cityInputLabel;
 // to hold the point specified in the input
@@ -46,10 +55,7 @@ var options = {
 // to hold the canvas
 var canvas;
 
-// lat and lng of point converted to positions on the screen
-var newX;
-var newY;
-
+// holds new x and y coords of a point
 var pos;
 
 class Point {
@@ -61,52 +67,43 @@ class Point {
     this.lat = lat;
     this.lng = lng;
 
-    this.aqi = parseInt(aqi);
+    this.aqi = aqi;
+
     // 6 categories, used for viewing only specific air quality groups
-    this.airQualityVal = 0;
-
-    this.reds = 0;
-    this.greens = 0;
-    this.blues = 0;
-
     // set color of point based on aqi
-    if ( this.aqi <= 50 ) {
+
+    if ( aqi <= 50 ) {
+      this.color = color ( 0, 239, 32, 150 );
       this.airQualityVal = 1;
-      this.greens = 239;
-      this.blues = 32;
     }
-    else if ( this.aqi <= 100) {
+    else if ( aqi <= 100) {
+      this.color = color ( 239, 239, 0, 150 );
       this.airQualityVal = 2;
-      this.reds = 239;
-      this.greens = 239;
     }
-    else if ( this.aqi <= 150 ) {
+    else if ( aqi <= 150 ) {
+      this.color = color ( 255, 179, 0, 150 );
       this.airQualityVal = 3;
-      this.reds = 255;
-      this.greens = 179;
     }
-    else if ( this.aqi <= 200 ) {
+    else if ( aqi <= 200 ) {
+      this.color = color ( 255, 68, 0, 150 );
       this.airQualityVal = 4;
-      this.reds = 255;
-      this.greens = 68;
     }
-    else if ( this.aqi <= 300 ) {
+    else if ( aqi <= 300 ) {
+      this.color = color ( 162, 0, 255, 150 );
       this.airQualityVal = 5;
-      this.reds = 162;
-      this.blues = 255;
     }
     else {
+      this.color = color ( 138, 2, 21, 150 );
       this.airQualityVal = 6;
-      this.reds = 138;
-      this.greens = 2;
-      this.blues = 21;
     }
 
     // true if point was clicked ( larger circle with info )
     this.isClicked = false;
     // true if this is the point created by using input ( larger circle with info )
-    this.search = false;
+    this.searched = false;
   }
+
+  setSearched () { this.searched = true; }
 
   // if point was clicked, flip isClicked
   clicked () {
@@ -116,8 +113,8 @@ class Point {
     // larger radius for closing so it's easier to close the circle
     if ( ( dist ( pos.x, pos.y, mouseX, mouseY ) < 10 && !this.isClicked ) || ( this.isClicked && dist ( pos.x, pos.y, mouseX, mouseY ) < 20 )) {
 
-      // flip icClicked if closing or if point in seelcted category
-      // is point clicked and category changed the point will still be displayed
+      // flip isClicked if closing or if point is in selected category
+      // if point clicked and category changed the point will still be displayed
       if ( selectAirQuality.value() == 0 || selectAirQuality.value() == this.airQualityVal || this.isClicked ) this.isClicked = !this.isClicked;
 
       mapMoved();
@@ -127,24 +124,35 @@ class Point {
   // if isClicked or searched or in ( seeAll mode and hovered ), will display larger circle with info
   putInfoOnMap() {
 
-    fill ( this.reds, this.greens, this.blues, 150 );
-    circle( newX, newY, map.zoom() * 40 );
+    push();
+    translate( pos.x, pos.y );
+
+    // circle storing the info
+    fill ( this.color );
+    circle( 0, 0, map.zoom() * 45 );
+
+    // circle is map.zoom() * 40 x map.zoom() * 40
+    // text will be at a +/- map.zoom() * 10 distance from center
     textAlign ( CENTER );
     textStyle ( BOLD );
+
     // black letters on light background, white letters on dark backgrounds
-    if ( this.airQualityVal == 5 || this.airQualityVal == 6 ) {
-      fill ( 255 );
-    }
-    else {
-      fill ( 0 );
-    }
-    // so that the name fits in one line in the circle
-    // really small if name is long
-    textSize ( ( map.zoom() * 54 ) / this.name.length );
-    text ( this.name, newX - map.zoom() * 27, newY - map.zoom() * 10, map.zoom() * 54, map.zoom() * 20 );
+    if ( this.airQualityVal >= 5 ) fill ( 255 );
+    else fill ( 0 );
+    
+    // so that text fits into the box
+    if ( this.name.length > 12 ) textSize ( map.zoom() * 3 );
+    else if ( this.name.length > 6 ) textSize ( map.zoom() * 4 );
+    else if ( this.name.length > 4  ) textSize ( map.zoom() * 6 );
+    else textSize ( ( map.zoom() * 36 ) / this.name.length );
+    // print name
+    text ( this.name, - map.zoom() * 18, - map.zoom() * 10, map.zoom() * 36, map.zoom() * 24 );
+
     // print aqi
     textSize ( map.zoom() * 10 );
-    text ( this.aqi, newX, newY + map.zoom() * 10 );
+    text ( this.aqi, 0, map.zoom() * 10 );
+
+    pop();
 
   }
 
@@ -154,8 +162,7 @@ class Point {
     // don't draw point if can't be visible on map
     if ( !map.map.getBounds().contains ( [ this.lat, this.lng ] ) ) return;
 
-    newX = map.latLngToPixel ( this.lat, this.lng ).x;
-    newY = map.latLngToPixel ( this.lat, this.lng ).y;
+    pos = map.latLngToPixel ( this.lat, this.lng );
 
     noStroke();
 
@@ -165,20 +172,20 @@ class Point {
     if ( this.searched || this.isClicked ) { this.putInfoOnMap(); }
 
     // point will not be displayed if it doesn't fall into the selected category
-    else if ( ! ( selectAirQuality.value() == 0 || selectAirQuality.value() == this.airQualityVal ) ) return;
+    else if ( selectAirQuality.value() != 0 && selectAirQuality.value() != this.airQualityVal ) return;
     
     // if in seeAll state point might be displayed
     // or if mouse close to point, point might be displayed
-    else if ( seeAll || dist ( newX, newY, mouseX, mouseY ) < 50 ) {
+    else if ( seeAll || dist ( pos.x, pos.y, mouseX, mouseY ) < 50 ) {
 
       // if in seeAll state and mouse close to point display larger circle with info
-      if ( seeAll && dist ( newX, newY, mouseX, mouseY ) < 5 ) this.putInfoOnMap();
+      if ( seeAll && dist ( pos.x, pos.y, mouseX, mouseY ) < 5 ) this.putInfoOnMap();
 
       // display small circle
       else {
 
-          fill ( this.reds, this.greens, this.blues, 150 );
-          circle( newX, newY, map.zoom() * 2.5 );
+          fill ( this.color );
+          circle( pos.x, pos.y, map.zoom() * 2.5 );
       }
     }
   }
@@ -204,7 +211,7 @@ function printJ ( data ) {
 
     for ( var i = 0; i < data.data.length; ++i ) {
       
-      points.push( new Point( data.data[i].station.name, data.data[i].lat, data.data[i].lon, data.data[i].aqi ) );
+      points.push( new Point( data.data[i].station.name, data.data[i].lat, data.data[i].lon, parseInt ( data.data[i].aqi ) ) );
     }
   }
 }
@@ -268,8 +275,8 @@ function getCityInfo ( data ) {
 
     clear();
 
-    newCity = new Point ( data.data.city.name, data.data.city.geo[0], data.data.city.geo[1], data.data.aqi );
-    newCity.searched = true;
+    newCity = new Point ( data.data.city.name, data.data.city.geo[0], data.data.city.geo[1], parseInt ( data.data.aqi ) );
+    newCity.setSearched();
     newCity.putOnMap ();
   }
 
@@ -281,14 +288,9 @@ function seeAllFunc () {
 
   seeAll = !seeAll;
 
-  if ( seeAll ) {
+  if ( seeAll ) document.getElementById ( "seeAllBtn" ).innerHTML = "Go back";
 
-    document.getElementById ( "seeAllBtn" ).innerHTML = "Go back";
-  }
-  else {
-
-    document.getElementById ( "seeAllBtn" ).innerHTML = "See all data";
-  }
+  else document.getElementById ( "seeAllBtn" ).innerHTML = "See all data";
 }
 
 function mapMoved () { clear(); }
@@ -306,8 +308,5 @@ function draw() {
 // change status of point if it is clicked
 function mousePressed () {
 
-  for ( var i = 0; i < points.length; ++i ) {
-
-    points[i].clicked();
-  }
+  for ( var i = 0; i < points.length; ++i ) points[i].clicked();
 }
