@@ -73,27 +73,27 @@ class Point {
     // set color of point based on aqi
 
     if ( aqi <= 50 ) {
-      this.color = color ( 0, 239, 32, 150 );
+      this.color = color ( 0, 239, 32, 200 );
       this.airQualityVal = 1;
     }
     else if ( aqi <= 100) {
-      this.color = color ( 239, 239, 0, 150 );
+      this.color = color ( 239, 239, 0, 200 );
       this.airQualityVal = 2;
     }
     else if ( aqi <= 150 ) {
-      this.color = color ( 255, 179, 0, 150 );
+      this.color = color ( 255, 179, 0, 200 );
       this.airQualityVal = 3;
     }
     else if ( aqi <= 200 ) {
-      this.color = color ( 255, 68, 0, 150 );
+      this.color = color ( 255, 68, 0, 200 );
       this.airQualityVal = 4;
     }
     else if ( aqi <= 300 ) {
-      this.color = color ( 162, 0, 255, 150 );
+      this.color = color ( 162, 0, 255, 200 );
       this.airQualityVal = 5;
     }
     else {
-      this.color = color ( 138, 2, 21, 150 );
+      this.color = color ( 138, 2, 21, 200 );
       this.airQualityVal = 6;
     }
 
@@ -140,7 +140,7 @@ class Point {
     if ( this.airQualityVal >= 5 ) fill ( 255 );
     else fill ( 0 );
     
-    // so that text fits into the box
+    // so that text fits into the circle
     if ( this.name.length > 12 ) textSize ( map.zoom() * 3 );
     else if ( this.name.length > 6 ) textSize ( map.zoom() * 4 );
     else if ( this.name.length > 4  ) textSize ( map.zoom() * 6 );
@@ -207,12 +207,11 @@ function preload () {
 
 function printJ ( data ) {
 
-  if ( data.status == "ok" ) {
+  if ( data.status != "ok" ) return;
 
-    for ( var i = 0; i < data.data.length; ++i ) {
-      
-      points.push( new Point( data.data[i].station.name, data.data[i].lat, data.data[i].lon, parseInt ( data.data[i].aqi ) ) );
-    }
+  for ( var i = 0; i < data.data.length; ++i ) {
+    
+    points.push( new Point( data.data[i].station.name, data.data[i].lat, data.data[i].lon, parseInt ( data.data[i].aqi ) ) );
   }
 }
 
@@ -264,6 +263,11 @@ function setup() {
 // called when input is changed
 function getCity () {
 
+  if ( cityInput.value() == "" ) return;
+
+  // send request for city instead of looking through gathered data
+  // this way the name doesn't have to be exactly the same as in already retrieved json
+  // request returns the one that matches the most
   request = baseUrl + "/feed/" + cityInput.value() + "/?token=" + token;
   loadJSON ( request, getCityInfo );
 }
@@ -271,16 +275,16 @@ function getCity () {
 // get data about the city in the input
 function getCityInfo ( data ) {
 
-  if ( data.status == "ok" ) {
-
-    clear();
-
-    newCity = new Point ( data.data.city.name, data.data.city.geo[0], data.data.city.geo[1], parseInt ( data.data.aqi ) );
-    newCity.setSearched();
-    newCity.putOnMap ();
+  if ( data.status != "ok" ) {
+    newCity = 0;
+    return;
   }
 
-  else newCity = 0;
+  clear();
+
+  newCity = new Point ( data.data.city.name, data.data.city.geo[0], data.data.city.geo[1], parseInt ( data.data.aqi ) );
+  newCity.setSearched();
+  newCity.putOnMap ();
 }
 
 // flip seeAll, show all points on the map
